@@ -1,0 +1,40 @@
+
+
+CREATE TABLES IN MYSQL 
+
+use final_project ;
+
+--TABLE for problem 3
+
+create table top_10_complaint_companies
+(
+complany varchar(30),
+complaints varchar(20)
+);
+
+grant all on *.* to 'root'@'localhost' with grant option;
+
+sqoop export --fs local 
+			--jt local 
+			--connect jdbc:mysql://localhost/final_project 
+			--username 'root' -P 
+			--table 'top_10_complaint_companies' 
+			--export-dir 'file:///home/acadgild/pig/top_10_complaints' 
+			--input-fields-terminated-by ',' 
+			-m 1 
+			--columns complany,complaints
+			
+			
+			
+--TABLE for problem 4
+
+create table complaint_debt_collection_2015
+(
+complaints varchar(20)
+);
+
+grant all on *.* to 'root'@'localhost' with grant option;
+
+sqoop export --fs local --jt local --connect jdbc:mysql://localhost/final_project --username 'root' -P --table 'top_10_complaint_companies' --export-dir 'file:///home/acadgild/pig/debt_collect_2015' 	--input-fields-terminated-by ',' -m 1 --columns complaints			
+
+			

@@ -1,0 +1,135 @@
+
+
+Load Data using pig storage 
+File structure 
+Column heading index Description
+
+Date received					0 date on which consumer filed the complaint
+Product 						1 Type of the product
+Sub-product 					2 Sub product type
+Issue 							3 Issue faced by the consumer
+Sub-issue 						4 Any sub issues if exists
+Consumer complaint narrative	5 Detailed description of complaint
+Company public response 		6 Company’s public response to the complaint
+Company 						7 Name of the company
+State 							8 State from which consumer filed the complaint
+ZIP code 						9 Zip code
+Submitted via 					10 Channel from which complaint was submitted
+Date sent to company 			11 Date on which consumer forum forwarded the complaint to company
+Company response to consumer	12 Company’s response to the consumer
+Timely response? 				13
+Consumer disputed? 				14
+Complaint ID 					15 Unique complaint id 
+
+
+REGISTER piggybank.jar
+
+consumer1  = LOAD '/home/acadgild/pig/FlumeData.1471155633803' USING org.apache.pig.piggybank.storage.CSVExcelStorage(',')
+				AS( date_rec:chararray ,
+					product:chararray ,
+					sub_product:chararray,
+					issue:chararray ,
+					sub_issue:chararray ,
+					complaint:chararray ,
+					comp_response:chararray ,
+					company:chararray ,
+					state:chararray ,
+					zip:chararray ,
+					via:chararray ,
+					date_sent_company:chararray ,
+					company_response:chararray ,
+					timely_response:chararray ,
+					consumer_disputed:chararray ,
+					compaint_id:chararray 	);
+DUMP consumer ;
+
+
+
+-- LOAD file to HDFS using flume 
+
+flume-ng agent –n agent1 –f /home/acadgild/pig/consumer_complaints.conf
+
+
+1. Write a pig script to find no of complaints which got timely response
+
+grunt> timely_response = FILTER consumer BY timely_response == 'Yes';
+grunt> grp_timely =  GROUP timely all;
+grunt> count_timely = FOREACH grp_timely GENERATE COUNT( timely.timely_response);
+grunt> dump count_timely;
+
+
+2. Write a pig script to find no of complaints where consumer forum forwarded the complaint same day they received to respective company
+
+grunt> a = FOREACH consumer1 GENERATE date_rec , date_sent_company;
+grunt> same_day_forward = FILTER a BY date_rec == date_sent_company;
+grunt> grp_same_day_forward = GROUP same_day_forward ALL;
+grunt> count_same_day_forward = FOREACH grp_same_day_forward GENERATE COUNT(same_day_forward.date_rec);
+grunt> dump count_same_day_forward;
+
+
+
+3. Write a pig script to find list of companies toping in complaint chart (companies with maximum number of complaints)
+grunt> complaint_company = FOREACH consumer1  GENERATE company;
+grunt> grp_complaint_company = GROUP complaint_company BY  company ;
+grunt>  count_complaint_company = FOREACH grp_complaint_company GENERATE group , COUNT(complaint_company.company);
+grunt> top_complaints = ORDER count_complaint_company BY $1 DESC;
+grunt> to_10_complaints = LIMIT top_complaints 10;
+grunt> dump to_10_complaints;
+grunt> STORE to_10_complaints INTO '/home/acadgild/pig/top_10_complaints' USING PigStorage(',');
+
+use final_project ;
+
+create table top_10_complaint_companies
+(
+complany varchar(30),
+complaints varchar(20)
+);
+
+grant all on *.* to 'root'@'localhost' with grant option;
+
+sqoop export --fs local 
+			--jt local 
+			--connect jdbc:mysql://localhost/final_project 
+			--username 'root' -P 
+			--table 'top_10_complaint_companies' 
+			--export-dir 'file:///home/acadgild/pig/top_10_complaints' 
+			--input-fields-terminated-by ',' 
+			-m 1 
+			--columns complany,complaints
+			
+
+
+
+
+
+4. Write a pig script to find no of complaints filed with product type has &quot;Debt collection&quot; for the year 2015
+grunt> complaint_prd = FOREACH consumer1 GENERATE date_rec , product;
+grunt> debt_complaint = FILTER complaint_prd BY ( product == 'Debt collection' AND SUBSTRING(date_rec ,6,10) == '2015');
+grunt> grp_complaint_prd = GROUP complaint_prd ALL;
+grunt> cnt_complaint_prd_2015 = FOREACH grp_complaint_prd GENERATE COUNT(complaint_prd.date_rec);
+grunt> STORE cnt_complaint_prd_2015 INTO '/home/acadgild/pig/debt_collect_2015' USING PigStorage(',');
+
+--TABLE for problem 4
+
+create table complaint_debt_collection_2015
+(
+complaints varchar(20)
+);
+
+grant all on *.* to 'root'@'localhost' with grant option;
+
+sqoop export --fs local 
+			--jt local 
+			--connect jdbc:mysql://localhost/final_project 
+			--username 'root' -P 
+			--table 'top_10_complaint_companies' 
+			--export-dir 'file:///home/acadgild/pig/debt_collect_2015' 	
+			--input-fields-terminated-by ',' 
+			-m 1 --columns complaints			
+
+
+
+
+
+
+
